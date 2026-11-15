@@ -1,0 +1,874 @@
+{% extends "base.html" %}
+
+{% block title %}SolarPulse | Dashboard{% endblock %}
+
+{% block head %}
+<style>
+    .chart-note {
+        color: #91a4bd;
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 18px;
+    }
+
+    .chart-container {
+        height: 330px;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .detector-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin: 22px 0;
+    }
+
+    .detector-stat {
+        background: rgba(50, 214, 194, 0.07);
+        border: 1px solid rgba(50, 214, 194, 0.15);
+        padding: 17px;
+        border-radius: 10px;
+    }
+
+    .detector-stat small {
+        display: block;
+        color: #91a4bd;
+        margin-bottom: 8px;
+    }
+
+    .detector-stat strong {
+        font-size: 24px;
+        color: #32d6c2;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        margin-top: 18px;
+    }
+
+    .anomaly-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 650px;
+    }
+
+    .anomaly-table th,
+    .anomaly-table td {
+        padding: 13px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(145, 164, 189, 0.15);
+        font-size: 13px;
+    }
+
+    .anomaly-table th {
+        color: #32d6c2;
+    }
+
+    .anomaly-table td {
+        color: #c3d3df;
+    }
+
+    .anomaly-badge {
+        display: inline-block;
+        background: rgba(240, 184, 75, 0.13);
+        color: #f0b84b;
+        padding: 5px 9px;
+        border-radius: 5px;
+        font-size: 11px;
+    }
+
+    .score-high {
+        color: #ff7979;
+        font-weight: bold;
+    }
+
+    .score-medium {
+        color: #f0b84b;
+        font-weight: bold;
+    }
+
+    .detector-message {
+        color: #91a4bd;
+        font-size: 13px;
+        margin-top: 15px;
+        line-height: 1.6;
+    }
+
+    .feature-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 15px;
+    }
+
+    .feature-link {
+        display: block;
+        text-decoration: none;
+        background: #142137;
+        border: 1px solid #253650;
+        border-radius: 12px;
+        padding: 20px;
+        transition: 0.2s;
+    }
+
+    .feature-link:hover {
+        border-color: #32d6c2;
+        transform: translateY(-3px);
+    }
+
+    .feature-link h3 {
+        color: #32d6c2;
+        font-size: 16px;
+        margin-bottom: 9px;
+    }
+
+    .feature-link p {
+        color: #91a4bd;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .dashboard-status {
+        display: inline-block;
+        color: #32d6c2;
+        background: rgba(50, 214, 194, 0.08);
+        padding: 8px 12px;
+        border-radius: 7px;
+        font-size: 12px;
+        margin-top: 12px;
+    }
+
+    @media (max-width: 650px) {
+        .detector-stats {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<header class="page-header">
+    <h1>Energy Dashboard</h1>
+    <p>Monitor, predict, and manage your institution's solar energy.</p>
+
+    <div class="dashboard-status">
+        ● SYSTEM ONLINE
+    </div>
+</header>
+
+
+<!-- SUMMARY CARDS -->
+
+<section class="stats-grid">
+
+    <div class="stat-card">
+        <p>Today's Solar Generation</p>
+        <h2 id="solarValue">-- kWh</h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Today's Energy Consumption</p>
+        <h2 id="consumptionValue">-- kWh</h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Today's Energy Balance</p>
+        <h2 id="balanceValue">Calculating...</h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Potential Anomalies</p>
+        <h2 id="dashboardAnomalyCount">--</h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Energy Runway</p>
+        <h2>Available</h2>
+        <p>Battery information required</p>
+    </div>
+
+    <div class="stat-card">
+        <p>Energy Intelligence</p>
+        <h2>AI Powered</h2>
+        <p>Forecasting and anomaly detection</p>
+    </div>
+
+</section>
+
+
+<!-- HOURLY SOLAR FORECAST -->
+
+<section class="card">
+
+    <h2>☀️ Solar Energy Forecast</h2>
+
+    <p class="chart-note">
+        Hourly AI-predicted solar generation for the next three days,
+        estimated for a 5 kW solar system.
+    </p>
+
+    <div class="chart-container">
+        <canvas id="forecastChart"></canvas>
+    </div>
+
+</section>
+
+
+<!-- DEPARTMENT CHARTS -->
+
+<div class="dashboard-grid">
+
+    <section class="card">
+
+        <h2>Energy Consumption by Department</h2>
+
+        <p class="chart-note">
+            Total simulated energy consumption across departments over 30 days.
+        </p>
+
+        <div class="chart-container">
+            <canvas id="consumptionChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <section class="card">
+
+        <h2>Energy Usage Distribution</h2>
+
+        <p class="chart-note">
+            Percentage contribution of each department to total energy consumption.
+        </p>
+
+        <div class="chart-container">
+            <canvas id="distributionChart"></canvas>
+        </div>
+
+    </section>
+
+</div>
+
+
+<!-- GENERATION VS CONSUMPTION -->
+
+<section class="card">
+
+    <h2>Generation vs. Consumption</h2>
+
+    <p class="chart-note">
+        AI-predicted solar generation compared with predicted electricity
+        consumption across the forecast period.
+    </p>
+
+    <div class="chart-container">
+        <canvas id="comparisonChart"></canvas>
+    </div>
+
+</section>
+
+
+<!-- AI ANOMALY DETECTOR -->
+
+<section class="card">
+
+    <h2>🔍 Silent Energy Waste Detector</h2>
+
+    <p class="chart-note">
+        Machine learning analyzes energy consumption patterns and
+        identifies records that may indicate unusual usage.
+    </p>
+
+    <div class="detector-stats">
+
+        <div class="detector-stat">
+            <small>Records Analyzed</small>
+            <strong id="recordsAnalyzed">--</strong>
+        </div>
+
+        <div class="detector-stat">
+            <small>Potential Anomalies</small>
+            <strong id="anomalyCount">--</strong>
+        </div>
+
+        <div class="detector-stat">
+            <small>Detection Threshold</small>
+            <strong id="anomalyThreshold">--</strong>
+        </div>
+
+    </div>
+
+    <h3>Detected Unusual Patterns</h3>
+
+    <div class="table-wrapper">
+
+        <table class="anomaly-table">
+
+            <thead>
+                <tr>
+                    <th>Department</th>
+                    <th>Date and Time</th>
+                    <th>Power</th>
+                    <th>Energy</th>
+                    <th>AI Score</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody id="anomalyTableBody">
+
+                <tr>
+                    <td colspan="6">Loading AI detection results...</td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <p class="detector-message" id="anomalyMessage">
+        Connecting to the anomaly detection model...
+    </p>
+
+    <p class="info-text">
+        The consumption records used by this demonstration are simulated.
+        Detected anomalies are potential unusual patterns, not confirmed equipment faults.
+    </p>
+
+</section>
+
+
+<!-- FEATURE SHORTCUTS -->
+
+<section class="card">
+
+    <h2>Explore SolarPulse</h2>
+
+    <p class="chart-note">
+        Open each feature to explore its tools and information.
+    </p>
+
+    <div class="feature-links">
+
+        <a href="/forecast" class="feature-link">
+            <h3>☀️ Solar Forecast</h3>
+            <p>Explore hourly and daily AI solar generation predictions.</p>
+        </a>
+
+        <a href="/monitoring" class="feature-link">
+            <h3>⚡ Energy Monitoring</h3>
+            <p>Examine energy consumption across different departments.</p>
+        </a>
+
+        <a href="/consumption" class="feature-link">
+            <h3>📊 Consumption Forecast</h3>
+            <p>Explore predicted electricity demand across departments and compare it with expected solar generation.</p>
+        </a>
+
+        <a href="/detector" class="feature-link">
+            <h3>🔍 AI Waste Detector</h3>
+            <p>Explore unusual energy consumption patterns identified by machine learning.</p>
+        </a>
+
+        <a href="/runway" class="feature-link">
+            <h3>🔋 Energy Runway</h3>
+            <p>Estimate how long available battery energy can support essential activities.</p>
+        </a>
+
+        <a href="/simulator" class="feature-link">
+            <h3>⚙️ Decision Simulator</h3>
+            <p>Explore how changing weather and energy usage affect the energy balance.</p>
+        </a>
+
+        <a href="/recommendations" class="feature-link">
+            <h3>💡 AI Recommendations</h3>
+            <p>Explore energy-saving suggestions based on available forecasts and consumption data.</p>
+        </a>
+
+    </div>
+
+</section>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+// GENERAL CHART SETTINGS
+
+Chart.defaults.color = "#c3d3df";
+Chart.defaults.font.family = "Arial";
+
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+
+    plugins: {
+        legend: {
+            labels: {
+                color: "#c3d3df"
+            }
+        }
+    },
+
+    scales: {
+        x: {
+            ticks: {
+                color: "#91a3b7"
+            },
+            grid: {
+                color: "rgba(145,163,183,0.08)"
+            }
+        },
+
+        y: {
+            beginAtZero: true,
+
+            ticks: {
+                color: "#91a3b7"
+            },
+
+            grid: {
+                color: "rgba(145,163,183,0.08)"
+            }
+        }
+    }
+};
+
+
+// GRAPH 1: HOURLY SOLAR FORECAST
+
+fetch("/api/forecast")
+
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Solar forecast API failed");
+        }
+
+        return response.json();
+    })
+
+    .then(data => {
+
+        console.log("Forecast data:", data);
+
+        const labels = data.map(item => item.time);
+
+        const generation = data.map(item =>
+            Number(item.generation)
+        );
+
+        new Chart(document.getElementById("forecastChart"), {
+
+            type: "line",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    label: "Predicted Generation (kWh)",
+                    data: generation,
+                    borderColor: "#32d6c2",
+                    backgroundColor: "rgba(50,214,194,0.12)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 9,
+                    pointHitRadius: 15
+                }]
+            },
+
+            options: {
+
+                ...chartOptions,
+
+                interaction: {
+                    mode: "nearest",
+                    intersect: false
+                },
+
+                plugins: {
+
+                    ...chartOptions.plugins,
+
+                    tooltip: {
+                        enabled: true,
+
+                        callbacks: {
+                            label: function(context) {
+                                return "Generation: " +
+                                    context.parsed.y.toFixed(3) + " kWh";
+                            }
+                        }
+                    }
+                },
+
+                scales: {
+
+                    ...chartOptions.scales,
+
+                    x: {
+                        ...chartOptions.scales.x,
+
+                        ticks: {
+                            maxTicksLimit: 12,
+                            color: "#91a3b7"
+                        }
+                    },
+
+                    y: {
+                        ...chartOptions.scales.y,
+
+                        title: {
+                            display: true,
+                            text: "Energy (kWh)"
+                        }
+                    }
+                }
+            }
+        });
+
+
+        const today = new Date().toLocaleDateString("en-CA");
+
+        const todayTotal = data
+
+            .filter(item => item.time.startsWith(today))
+
+            .reduce((sum, item) =>
+                sum + Number(item.generation), 0
+            );
+
+        document.getElementById("solarValue").textContent =
+            todayTotal.toFixed(2) + " kWh";
+
+    })
+
+    .catch(error => {
+        console.error("Solar chart error:", error);
+        document.getElementById("solarValue").textContent = "Unavailable";
+    });
+
+
+// GRAPHS 2 AND 3: DEPARTMENT CONSUMPTION
+
+fetch("/api/energy-summary")
+
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Energy summary API failed");
+        }
+
+        return response.json();
+    })
+
+    .then(data => {
+
+        const departments = data.map(item => item.department);
+
+        const energy = data.map(item => item.energy_kwh);
+
+
+        new Chart(document.getElementById("consumptionChart"), {
+
+            type: "bar",
+
+            data: {
+                labels: departments,
+
+                datasets: [{
+                    label: "Energy Consumption (kWh)",
+                    data: energy,
+
+                    backgroundColor: [
+                        "#32d6c2",
+                        "#4b9be8",
+                        "#a78bfa",
+                        "#f0b84b"
+                    ],
+
+                    borderRadius: 6
+                }]
+            },
+
+            options: chartOptions
+
+        });
+
+
+        new Chart(document.getElementById("distributionChart"), {
+
+            type: "doughnut",
+
+            data: {
+                labels: departments,
+
+                datasets: [{
+                    data: energy,
+
+                    backgroundColor: [
+                        "#32d6c2",
+                        "#4b9be8",
+                        "#a78bfa",
+                        "#f0b84b"
+                    ],
+
+                    borderWidth: 0
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                plugins: {
+                    legend: {
+                        position: "bottom"
+                    }
+                }
+            }
+
+        });
+
+    })
+
+    .catch(error => {
+        console.error("Department chart error:", error);
+    });
+
+
+// GRAPH 4: GENERATION VS CONSUMPTION
+
+Promise.all([
+
+    fetch("/api/daily-summary").then(response => {
+        if (!response.ok) {
+            throw new Error("Daily summary failed");
+        }
+
+        return response.json();
+    }),
+
+    fetch("/api/daily-consumption-forecast").then(response => {
+        if (!response.ok) {
+            throw new Error("Consumption forecast failed");
+        }
+
+        return response.json();
+    })
+
+])
+
+.then(([generationData, consumptionData]) => {
+
+    const consumptionMap = {};
+
+    consumptionData.forEach(item => {
+        consumptionMap[item.date] = Number(item.estimated_consumption_kwh);
+    });
+
+
+    const labels = generationData.map(item => item.date);
+
+    const generation = generationData.map(item =>
+        Number(item.predicted_generation_kwh)
+    );
+
+    const consumption = labels.map(date =>
+        consumptionMap[date] ?? 0
+    );
+
+
+    new Chart(document.getElementById("comparisonChart"), {
+
+        type: "bar",
+
+        data: {
+            labels: labels,
+
+            datasets: [
+
+                {
+                    label: "Solar Generation (kWh)",
+                    data: generation,
+                    backgroundColor: "#32d6c2"
+                },
+
+                {
+                    label: "Predicted Consumption (kWh)",
+                    data: consumption,
+                    backgroundColor: "#f0b84b"
+                }
+
+            ]
+        },
+
+        options: chartOptions
+
+    });
+
+
+    // UPDATE TODAY'S CONSUMPTION AND ENERGY BALANCE
+
+    const today = new Date().toLocaleDateString("en-CA");
+
+    const todayConsumption = consumptionMap[today];
+
+    if (todayConsumption !== undefined) {
+
+        document.getElementById("consumptionValue").textContent =
+            todayConsumption.toFixed(2) + " kWh";
+
+        const todaySolar = generationData
+            .filter(item => item.date === today)
+            .reduce((sum, item) =>
+                sum + Number(item.predicted_generation_kwh), 0
+            );
+
+        const balance = todaySolar - todayConsumption;
+
+        const balanceElement =
+            document.getElementById("balanceValue");
+
+        if (balance >= 0) {
+
+            balanceElement.textContent =
+                "+" + balance.toFixed(2) + " kWh";
+
+        } else {
+
+            balanceElement.textContent =
+                balance.toFixed(2) + " kWh";
+
+        }
+
+    } else {
+
+        document.getElementById("consumptionValue").textContent =
+            "Unavailable";
+
+        document.getElementById("balanceValue").textContent =
+            "Unavailable";
+
+    }
+
+})
+
+.catch(error => {
+
+    console.error("Comparison chart error:", error);
+
+    document.getElementById("consumptionValue").textContent =
+        "Unavailable";
+
+    document.getElementById("balanceValue").textContent =
+        "Unavailable";
+
+});
+
+
+// AI ANOMALY DETECTOR
+
+fetch("/api/anomalies")
+
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Anomaly API failed");
+        }
+
+        return response.json();
+    })
+
+    .then(data => {
+
+        document.getElementById("recordsAnalyzed").textContent =
+            data.total_test_records;
+
+        document.getElementById("anomalyCount").textContent =
+            data.detected_anomalies;
+
+        document.getElementById("dashboardAnomalyCount").textContent =
+            data.detected_anomalies;
+
+        document.getElementById("anomalyThreshold").textContent =
+            (data.threshold * 100).toFixed(0) + "%";
+
+
+        const table = document.getElementById("anomalyTableBody");
+
+        table.innerHTML = "";
+
+
+        if (!data.anomalies || data.anomalies.length === 0) {
+
+            table.innerHTML =
+                '<tr><td colspan="6">No potential anomalies detected.</td></tr>';
+
+        } else {
+
+            data.anomalies.forEach(item => {
+
+                const row = document.createElement("tr");
+
+                const score = Number(item.anomaly_probability);
+
+                const scoreClass = score >= 75
+                    ? "score-high"
+                    : "score-medium";
+
+
+                row.innerHTML = `
+                    <td>${item.department}</td>
+                    <td>${item.timestamp}</td>
+                    <td>${Number(item.power_w).toFixed(2)} W</td>
+                    <td>${Number(item.energy_kwh).toFixed(3)} kWh</td>
+                    <td class="${scoreClass}">
+                        ${score.toFixed(2)}%
+                    </td>
+                    <td>
+                        <span class="anomaly-badge">
+                            ${item.status}
+                        </span>
+                    </td>
+                `;
+
+                table.appendChild(row);
+
+            });
+
+        }
+
+
+        document.getElementById("anomalyMessage").textContent =
+            "Analysis completed using " + data.data_type +
+            ". These are potential anomalies, not confirmed equipment faults.";
+
+    })
+
+    .catch(error => {
+
+        console.error("Anomaly detector error:", error);
+
+        document.getElementById("dashboardAnomalyCount").textContent =
+            "Unavailable";
+
+        document.getElementById("anomalyMessage").textContent =
+            "Could not load anomaly detection results. Check the Flask server.";
+
+        document.getElementById("anomalyTableBody").innerHTML =
+            '<tr><td colspan="6">Unable to load results.</td></tr>';
+
+    });
+
+</script>
+
+{% endblock %}

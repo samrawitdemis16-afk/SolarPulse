@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}AI Waste Detector | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>AI Energy Waste Detector</h1>
+
+<p class="info-text">
+    Machine learning analyzes energy consumption patterns and identifies
+    potentially unusual usage.
+</p>
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Records Analyzed</h3>
+        <h2 id="totalRecords">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Potential Anomalies</h3>
+        <h2 id="detectedAnomalies">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Detection Threshold</h3>
+        <h2 id="threshold">Loading...</h2>
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h2>Potential Energy Anomalies</h2>
+
+    <p class="info-text" id="dataType">
+        Loading data information...
+    </p>
+
+    <div style="overflow-x:auto;">
+
+        <table style="width:100%; border-collapse:collapse;">
+
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Department</th>
+                    <th>Hour</th>
+                    <th>Power (W)</th>
+                    <th>Energy (kWh)</th>
+                    <th>Model Score</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody id="anomalyTable">
+
+                <tr>
+                    <td colspan="7">Loading anomaly results...</td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+async function loadAnomalies() {
+
+    try {
+
+        const response = await fetch("/api/anomalies");
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load anomaly results.");
+        }
+
+        document.getElementById("totalRecords").textContent =
+            data.total_test_records;
+
+        document.getElementById("detectedAnomalies").textContent =
+            data.detected_anomalies;
+
+        document.getElementById("threshold").textContent =
+            (data.threshold * 100).toFixed(0) + "%";
+
+        document.getElementById("dataType").textContent =
+            "Data source: " + data.data_type;
+
+        const table = document.getElementById("anomalyTable");
+
+        table.innerHTML = "";
+
+        if (data.anomalies.length === 0) {
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="7">No potential anomalies detected.</td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        data.anomalies.forEach(item => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${item.timestamp}</td>
+                <td>${item.department}</td>
+                <td>${item.hour}:00</td>
+                <td>${Number(item.power_w).toFixed(2)}</td>
+                <td>${Number(item.energy_kwh).toFixed(3)}</td>
+                <td>${Number(item.anomaly_probability).toFixed(2)}%</td>
+                <td>${item.status}</td>
+            `;
+
+            table.appendChild(row);
+
+        });
+
+    } catch (error) {
+
+        console.error("Anomaly detection error:", error);
+
+        document.getElementById("anomalyTable").innerHTML = `
+            <tr>
+                <td colspan="7">Unable to load anomaly results. Check the Flask server.</td>
+            </tr>
+        `;
+
+    }
+
+}
+
+loadAnomalies();
+
+</script>
+
+{% endblock %}

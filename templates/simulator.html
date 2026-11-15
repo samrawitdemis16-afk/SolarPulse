@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Decision Simulator | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>Energy Decision Simulator</h1>
+
+<p class="info-text">
+    Explore different energy scenarios and understand how they affect your energy balance.
+</p>
+
+<div class="card">
+
+    <h2>Configure Your Scenario</h2>
+
+    <label for="solarGeneration">Expected Solar Generation (kWh)</label>
+    <input
+        type="number"
+        id="solarGeneration"
+        value="25"
+        min="0"
+        step="0.5"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <label for="energyConsumption">Expected Energy Consumption (kWh)</label>
+    <input
+        type="number"
+        id="energyConsumption"
+        value="20"
+        min="0"
+        step="0.5"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <label for="weatherScenario">Weather Scenario</label>
+    <select
+        id="weatherScenario"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+        <option value="1">Sunny</option>
+        <option value="0.75">Partly Cloudy</option>
+        <option value="0.45">Cloudy</option>
+    </select>
+
+    <label for="consumptionScenario">Consumption Scenario</label>
+    <select
+        id="consumptionScenario"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+        <option value="1">Normal Consumption</option>
+        <option value="1.2">20% Increased Consumption</option>
+        <option value="1.5">50% Increased Consumption</option>
+        <option value="0.8">20% Reduced Consumption</option>
+    </select>
+
+    <button onclick="runSimulation()">
+        Run Simulation
+    </button>
+
+</div>
+
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Adjusted Solar Generation</h3>
+        <h2 id="adjustedGeneration">-- kWh</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Adjusted Consumption</h3>
+        <h2 id="adjustedConsumption">-- kWh</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Energy Balance</h3>
+        <h2 id="energyBalance">-- kWh</h2>
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Simulation Results</h2>
+
+    <p id="simulationMessage" class="info-text">
+        Configure your scenario and run the simulation.
+    </p>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Energy Comparison</h2>
+
+    <div class="chart-container">
+        <canvas id="simulationChart"></canvas>
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+let simulationChart = null;
+
+function runSimulation() {
+
+    const solar = Number(
+        document.getElementById("solarGeneration").value
+    );
+
+    const consumption = Number(
+        document.getElementById("energyConsumption").value
+    );
+
+    const weatherFactor = Number(
+        document.getElementById("weatherScenario").value
+    );
+
+    const consumptionFactor = Number(
+        document.getElementById("consumptionScenario").value
+    );
+
+    const message = document.getElementById("simulationMessage");
+
+    if (
+        !Number.isFinite(solar) ||
+        !Number.isFinite(consumption) ||
+        solar < 0 ||
+        consumption < 0
+    ) {
+
+        message.textContent =
+            "Please enter valid non-negative energy values.";
+
+        return;
+
+    }
+
+    const adjustedSolar = solar * weatherFactor;
+
+    const adjustedUse = consumption * consumptionFactor;
+
+    const balance = adjustedSolar - adjustedUse;
+
+    document.getElementById("adjustedGeneration").textContent =
+        adjustedSolar.toFixed(2) + " kWh";
+
+    document.getElementById("adjustedConsumption").textContent =
+        adjustedUse.toFixed(2) + " kWh";
+
+    document.getElementById("energyBalance").textContent =
+        (balance > 0 ? "+" : "") + balance.toFixed(2) + " kWh";
+
+    if (balance > 0) {
+
+        message.textContent =
+            "Energy surplus: generation exceeds consumption by " +
+            balance.toFixed(2) +
+            " kWh. Some energy may be available for storage, subject to battery capacity and system limits.";
+
+    } else if (balance < 0) {
+
+        message.textContent =
+            "Energy deficit: consumption exceeds generation by " +
+            Math.abs(balance).toFixed(2) +
+            " kWh. Consider reducing flexible activities or using stored energy.";
+
+    } else {
+
+        message.textContent =
+            "Energy balance: estimated solar generation matches consumption.";
+
+    }
+
+    const chartData = {
+        labels: ["Solar Generation", "Energy Consumption"],
+
+        datasets: [{
+            label: "Energy (kWh)",
+            data: [adjustedSolar, adjustedUse],
+            borderWidth: 1
+        }]
+    };
+
+    if (simulationChart) {
+
+        simulationChart.destroy();
+
+    }
+
+    simulationChart = new Chart(
+        document.getElementById("simulationChart"),
+        {
+            type: "bar",
+
+            data: chartData,
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Energy (kWh)"
+                        }
+                    }
+                }
+            }
+        }
+    );
+
+}
+
+runSimulation();
+
+</script>
+
+{% endblock %}

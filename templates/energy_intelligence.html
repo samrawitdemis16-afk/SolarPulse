@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+
+{% block title %}SolarPulse | Energy Intelligence{% endblock %}
+
+{% block head %}
+<style>
+    .page-intro {
+        color: #91a4bd;
+        margin-bottom: 25px;
+        line-height: 1.6;
+    }
+
+    .section-title {
+        margin: 30px 0 15px;
+        font-size: 20px;
+    }
+
+    .battery-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 20px;
+    }
+
+    .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .input-group label {
+        color: #cbd5e1;
+        font-size: 14px;
+    }
+
+    .input-group input {
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #17243a;
+        color: white;
+        font-size: 15px;
+        width: 100%;
+    }
+
+    .input-group small {
+        color: #91a4bd;
+        font-size: 12px;
+    }
+
+    .primary-button {
+        margin-top: 20px;
+        padding: 12px 22px;
+        background: #16b8a6;
+        color: #071525;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .primary-button:hover {
+        opacity: 0.85;
+    }
+
+    .info-box {
+        background: #17243a;
+        border-left: 4px solid #16b8a6;
+        padding: 15px;
+        border-radius: 8px;
+        color: #cbd5e1;
+        line-height: 1.6;
+        margin-top: 20px;
+    }
+
+    .placeholder {
+        color: #91a4bd;
+        padding: 20px;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>Energy Intelligence</h1>
+
+<p class="page-intro">
+    Simulate your battery system, predict future energy availability,
+    and explore how changes in solar generation and electricity
+    consumption affect your institution's energy supply.
+</p>
+
+<div class="card">
+
+    <h2>Battery Simulation Setup</h2>
+
+    <p class="info-text">
+        Enter your assumed battery specifications to create a simulated
+        energy storage system. These values do not represent measurements
+        from a physically connected battery.
+    </p>
+
+    <div class="battery-form">
+
+        <div class="input-group">
+            <label for="batteryCapacity">Battery Capacity (kWh)</label>
+            <input type="number" id="batteryCapacity"
+                   min="1" max="10000" value="100">
+            <small>Total energy storage capacity.</small>
+        </div>
+
+        <div class="input-group">
+            <label for="initialCharge">Initial Battery Charge (%)</label>
+            <input type="number" id="initialCharge"
+                   min="0" max="100" value="80">
+            <small>Starting battery charge.</small>
+        </div>
+
+        <div class="input-group">
+            <label for="reserveLevel">Minimum Reserve (%)</label>
+            <input type="number" id="reserveLevel"
+                   min="0" max="100" value="20">
+            <small>Energy that should remain protected.</small>
+        </div>
+
+        <div class="input-group">
+            <label for="chargingEfficiency">Charging Efficiency (%)</label>
+            <input type="number" id="chargingEfficiency"
+                   min="1" max="100" value="90">
+            <small>Percentage of incoming solar energy stored.</small>
+        </div>
+
+    </div>
+
+    <button class="primary-button" id="simulateButton">
+        Run Energy Simulation
+    </button>
+
+    <div class="info-box">
+        <strong>How it works:</strong>
+        SolarPulse will combine the simulated battery settings with
+        predicted solar generation and electricity consumption to
+        estimate future battery levels.
+    </div>
+
+</div>
+
+
+<h2 class="section-title">Battery Status</h2>
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Current Charge</h3>
+        <p id="currentCharge">--%</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Available Energy</h3>
+        <p id="availableEnergy">-- kWh</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Reserved Energy</h3>
+        <p id="reservedEnergy">-- kWh</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Projected Charge</h3>
+        <p id="projectedCharge">--%</p>
+    </div>
+
+</div>
+
+
+<h2 class="section-title">24-Hour Battery Forecast</h2>
+
+<div class="card">
+    <div class="chart-container">
+        <canvas id="batteryForecastChart"></canvas>
+    </div>
+
+    <p class="placeholder" id="forecastMessage">
+        Run the simulation to view your projected battery levels.
+    </p>
+</div>
+
+
+<h2 class="section-title">Energy Shortage Analysis</h2>
+
+<div class="card">
+    <div class="placeholder" id="shortageAnalysis">
+        Energy shortage analysis will appear after the simulation.
+    </div>
+</div>
+
+
+<h2 class="section-title">Energy Scenario Comparison</h2>
+
+<div class="card">
+
+    <p class="info-text">
+        Explore how different weather and electricity consumption
+        conditions affect your simulated battery.
+    </p>
+
+    <button class="primary-button" id="compareButton">
+        Compare Energy Scenarios
+    </button>
+
+    <div id="scenarioResults" style="margin-top:25px;">
+        <p class="placeholder">
+            Run the comparison to see how your battery performs
+            under different conditions.
+        </p>
+    </div>
+
+    <div class="chart-container" style="margin-top:25px;">
+        <canvas id="scenarioChart"></canvas>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let batteryChart = null;
+
+document.getElementById("simulateButton").addEventListener("click", runSimulation);
+
+async function runSimulation() {
+
+    const capacity = Number(document.getElementById("batteryCapacity").value);
+    const initialCharge = Number(document.getElementById("initialCharge").value);
+    const reserve = Number(document.getElementById("reserveLevel").value);
+    const efficiency = Number(document.getElementById("chargingEfficiency").value);
+
+    if (
+        capacity <= 0 ||
+        initialCharge < 0 || initialCharge > 100 ||
+        reserve < 0 || reserve > 100 ||
+        efficiency <= 0 || efficiency > 100 ||
+        reserve > initialCharge
+    ) {
+        alert("Please enter valid battery settings. The initial charge must be at least the reserve level.");
+        return;
+    }
+
+    const button = document.getElementById("simulateButton");
+    button.disabled = true;
+    button.textContent = "Calculating...";
+
+    try {
+
+        const [solarResponse, consumptionResponse] = await Promise.all([
+            fetch("/api/forecast"),
+            fetch("/api/department-consumption-forecast")
+        ]);
+
+        if (!solarResponse.ok || !consumptionResponse.ok) {
+            throw new Error("Could not load forecasting data.");
+        }
+
+        const solarData = await solarResponse.json();
+        const consumptionData = await consumptionResponse.json();
+
+        const solarHours = solarData;
+        const consumptionHours = consumptionData.predictions;
+
+        if (!Array.isArray(solarHours) || !Array.isArray(consumptionHours)) {
+            throw new Error("Unexpected forecasting data format.");
+        }
+
+        const consumptionMap = {};
+
+        consumptionHours.forEach(item => {
+            const key = item.time;
+
+            consumptionMap[key] =
+                (consumptionMap[key] || 0) +
+                Number(item.predicted_consumption_kwh);
+        });
+
+        let charge = capacity * initialCharge / 100;
+        const reserveEnergy = capacity * reserve / 100;
+
+        const labels = [];
+        const batteryLevels = [];
+        const hourlyResults = [];
+
+        let totalDemand = 0;
+        let totalSolar = 0;
+        let totalSupplied = 0;
+        let shortageHours = 0;
+
+        for (const hour of solarHours) {
+
+            const time = hour.time;
+            const generation = Math.max(0, Number(hour.generation) || 0);
+            const demand = Math.max(0, consumptionMap[time] || 0);
+
+            const previousCharge = charge;
+
+            totalSolar += generation;
+            totalDemand += demand;
+
+            const netEnergy = generation - demand;
+
+            if (netEnergy >= 0) {
+
+                const storedEnergy = netEnergy * efficiency / 100;
+
+                charge = Math.min(capacity, charge + storedEnergy);
+
+                totalSupplied += demand;
+
+            } else {
+
+                const requiredEnergy = Math.abs(netEnergy);
+
+                const usableEnergy = Math.max(0, charge - reserveEnergy);
+
+                const suppliedFromBattery = Math.min(
+                    usableEnergy,
+                    requiredEnergy
+                );
+
+                charge -= suppliedFromBattery;
+
+                totalSupplied += demand - requiredEnergy + suppliedFromBattery;
+
+                if (suppliedFromBattery < requiredEnergy) {
+                    shortageHours++;
+                }
+            }
+
+            charge = Math.max(reserveEnergy, Math.min(capacity, charge));
+
+            const percentage = (charge / capacity) * 100;
+
+            labels.push(time);
+            batteryLevels.push(Number(percentage.toFixed(2)));
+
+            hourlyResults.push({
+                time,
+                generation: generation.toFixed(2),
+                demand: demand.toFixed(2),
+                battery: percentage.toFixed(2),
+                previousCharge: previousCharge.toFixed(2)
+            });
+        }
+
+        const currentPercentage = initialCharge;
+        const finalPercentage = (charge / capacity) * 100;
+
+        const availableEnergy = Math.max(0, capacity * currentPercentage / 100 - reserveEnergy);
+
+        const coverage = totalDemand > 0
+            ? Math.min(100, totalSupplied / totalDemand * 100)
+            : 100;
+
+        document.getElementById("currentCharge").textContent =
+            currentPercentage.toFixed(2) + "%";
+
+        document.getElementById("availableEnergy").textContent =
+            availableEnergy.toFixed(2) + " kWh";
+
+        document.getElementById("reservedEnergy").textContent =
+            reserveEnergy.toFixed(2) + " kWh";
+
+        document.getElementById("projectedCharge").textContent =
+            finalPercentage.toFixed(2) + "%";
+
+        document.getElementById("forecastMessage").textContent =
+            "Simulation completed using " + labels.length +
+            " forecast hours.";
+
+        document.getElementById("shortageAnalysis").innerHTML = `
+            <h3>Simulation Results</h3>
+            <p>Total predicted solar generation: ${totalSolar.toFixed(2)} kWh</p>
+            <p>Total predicted electricity demand: ${totalDemand.toFixed(2)} kWh</p>
+            <p>Final simulated battery charge: ${finalPercentage.toFixed(2)}%</p>
+            <p>Estimated demand coverage: ${coverage.toFixed(2)}%</p>
+            <p>Hours with unmet energy demand: ${shortageHours}</p>
+        `;
+
+        if (batteryChart) {
+            batteryChart.destroy();
+        }
+
+        const ctx = document.getElementById("batteryForecastChart");
+
+        batteryChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Battery Charge (%)",
+                    data: batteryLevels,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: "Battery Charge (%)"
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 8
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+
+        console.error(error);
+        alert("Simulation failed: " + error.message);
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent = "Run Energy Simulation";
+
+    }
+}
+let scenarioChart = null;
+
+document.getElementById("compareButton").addEventListener("click", compareScenarios);
+
+async function compareScenarios() {
+
+    const capacity = Number(document.getElementById("batteryCapacity").value);
+    const initialCharge = Number(document.getElementById("initialCharge").value);
+    const reserve = Number(document.getElementById("reserveLevel").value);
+    const efficiency = Number(document.getElementById("chargingEfficiency").value);
+
+    if (
+        capacity <= 0 ||
+        initialCharge < 0 || initialCharge > 100 ||
+        reserve < 0 || reserve > initialCharge ||
+        efficiency <= 0 || efficiency > 100
+    ) {
+        alert("Please enter valid battery settings first.");
+        return;
+    }
+
+    const button = document.getElementById("compareButton");
+
+    button.disabled = true;
+    button.textContent = "Comparing...";
+
+    try {
+
+        const [solarResponse, consumptionResponse] = await Promise.all([
+            fetch("/api/forecast"),
+            fetch("/api/department-consumption-forecast")
+        ]);
+
+        if (!solarResponse.ok || !consumptionResponse.ok) {
+            throw new Error("Unable to load forecast data.");
+        }
+
+        const solarData = await solarResponse.json();
+        const consumptionData = await consumptionResponse.json();
+
+        const consumptionMap = {};
+
+        consumptionData.predictions.forEach(item => {
+            consumptionMap[item.time] =
+                (consumptionMap[item.time] || 0) +
+                Number(item.predicted_consumption_kwh);
+        });
+
+        const scenarios = [
+            {
+                name: "Sunny Day",
+                solarMultiplier: 1.2,
+                demandMultiplier: 1.0
+            },
+            {
+                name: "Cloudy Day",
+                solarMultiplier: 0.5,
+                demandMultiplier: 1.0
+            },
+            {
+                name: "High Consumption",
+                solarMultiplier: 1.0,
+                demandMultiplier: 1.3
+            }
+        ];
+
+        const results = scenarios.map(scenario => {
+
+            let charge = capacity * initialCharge / 100;
+            const reserveEnergy = capacity * reserve / 100;
+
+            let totalDemand = 0;
+            let totalSupplied = 0;
+            let shortage = 0;
+
+            solarData.forEach(hour => {
+
+                const generation =
+                    Math.max(0, Number(hour.generation) || 0) *
+                    scenario.solarMultiplier;
+
+                const demand =
+                    Math.max(0, Number(consumptionMap[hour.time]) || 0) *
+                    scenario.demandMultiplier;
+
+                totalDemand += demand;
+
+                const netEnergy = generation - demand;
+
+                if (netEnergy >= 0) {
+
+                    charge = Math.min(
+                        capacity,
+                        charge + netEnergy * efficiency / 100
+                    );
+
+                    totalSupplied += demand;
+
+                } else {
+
+                    const required = Math.abs(netEnergy);
+                    const usable = Math.max(0, charge - reserveEnergy);
+
+                    const supplied = Math.min(required, usable);
+
+                    charge -= supplied;
+
+                    totalSupplied += generation + supplied;
+                    shortage += required - supplied;
+                }
+
+            });
+
+            const finalPercentage = charge / capacity * 100;
+
+            const coverage = totalDemand > 0
+                ? totalSupplied / totalDemand * 100
+                : 100;
+
+            return {
+                name: scenario.name,
+                finalCharge: finalPercentage,
+                availableEnergy: Math.max(0, charge - reserveEnergy),
+                shortage: shortage,
+                coverage: Math.min(100, coverage)
+            };
+
+        });
+
+        document.getElementById("scenarioResults").innerHTML =
+            results.map(result => `
+                <div class="stat-card" style="margin-bottom:15px;">
+                    <h3>${result.name}</h3>
+                    <p>Final battery charge: ${result.finalCharge.toFixed(2)}%</p>
+                    <p>Available energy: ${result.availableEnergy.toFixed(2)} kWh</p>
+                    <p>Energy shortage: ${result.shortage.toFixed(2)} kWh</p>
+                    <p>Demand coverage: ${result.coverage.toFixed(2)}%</p>
+                </div>
+            `).join("");
+
+        if (scenarioChart) {
+            scenarioChart.destroy();
+        }
+
+        scenarioChart = new Chart(
+            document.getElementById("scenarioChart"),
+            {
+                type: "bar",
+                data: {
+                    labels: results.map(r => r.name),
+                    datasets: [
+                        {
+                            label: "Final Battery Charge (%)",
+                            data: results.map(r => Number(r.finalCharge.toFixed(2)))
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: "Battery Charge (%)"
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+    } catch (error) {
+
+        console.error(error);
+        alert("Scenario comparison failed: " + error.message);
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent = "Compare Energy Scenarios";
+
+    }
+}
+</script>
+{% endblock %}

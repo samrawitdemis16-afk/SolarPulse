@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Solar Forecast | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>Solar Energy Forecast</h1>
+<p class="info-text">
+    AI-powered predictions of solar energy generation.
+</p>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Forecast Period</h3>
+        <h2>Next 3 Days</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Estimated Generation</h3>
+        <h2 id="totalGeneration">Loading...</h2>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Hourly Solar Generation Forecast</h2>
+    <p class="info-text">
+        Estimated solar energy generation throughout the day.
+    </p>
+    <div class="chart-container">
+        <canvas id="forecastChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Daily Solar Generation</h2>
+    <p class="info-text">
+        Comparison of estimated solar generation across the forecast days.
+    </p>
+    <div class="chart-container">
+        <canvas id="dailyChart"></canvas>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+async function loadForecast() {
+
+    try {
+
+        const response = await fetch("/api/forecast");
+        const data = await response.json();
+
+        const labels = data.map(item => item.time);
+        const generation = data.map(item => Number(item.generation));
+
+        new Chart(document.getElementById("forecastChart"), {
+            type: "line",
+
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Solar Generation (kWh)",
+                    data: generation,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 9,
+                    pointHitRadius: 15
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                interaction: {
+                    mode: "nearest",
+                    intersect: false
+                },
+
+                plugins: {
+                    tooltip: {
+                        enabled: true
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Hourly forecast error:", error);
+    }
+
+}
+
+
+async function loadDailyForecast() {
+
+    try {
+
+        const response = await fetch("/api/daily-summary");
+        const data = await response.json();
+
+        const labels = data.map(item => item.date);
+
+        const values = data.map(
+            item => Number(item.predicted_generation_kwh)
+        );
+
+        const total = values.reduce((sum, value) => sum + value, 0);
+
+        document.getElementById("totalGeneration").textContent =
+            total.toFixed(2) + " kWh";
+
+        new Chart(document.getElementById("dailyChart"), {
+
+            type: "bar",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    label: "Daily Generation (kWh)",
+                    data: values,
+                    borderWidth: 1
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+
+        });
+
+    } catch (error) {
+        console.error("Daily forecast error:", error);
+    }
+
+}
+
+
+loadForecast();
+loadDailyForecast();
+
+</script>
+
+{% endblock %}

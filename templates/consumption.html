@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Consumption Forecast | SolarPulse{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1>Energy Consumption Forecast</h1>
+    <p>Explore predicted electricity consumption across different departments.</p>
+</div>
+
+<div class="info-text">
+    These are AI predictions based on simulated historical energy consumption
+    data. They are estimates, not measurements of actual electricity use.
+</div>
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Total Predicted Consumption</h3>
+        <h2 id="totalConsumption">Loading...</h2>
+        <p>Across the forecast period</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Highest Consumption</h3>
+        <h2 id="highestDepartment">Loading...</h2>
+        <p id="highestValue">Department comparison</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Estimated Solar Generation</h3>
+        <h2 id="totalSolar">Loading...</h2>
+        <p>Across the forecast period</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Energy Balance</h3>
+        <h2 id="energyBalance">Loading...</h2>
+        <p id="balanceDescription">Generation minus consumption</p>
+    </div>
+
+</div>
+
+<div class="card">
+    <h2>Hourly Department Consumption</h2>
+    <p class="info-text">
+        Predicted hourly electricity consumption for each department.
+    </p>
+    <div class="chart-container">
+        <canvas id="hourlyChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Department Comparison</h2>
+    <p class="info-text">
+        Total predicted consumption by department during the forecast period.
+    </p>
+    <div class="chart-container">
+        <canvas id="departmentChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Solar Generation vs Consumption</h2>
+    <p class="info-text">
+        Compare estimated daily solar generation with predicted daily energy demand.
+    </p>
+    <div class="chart-container">
+        <canvas id="comparisonChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Daily Consumption Forecast</h2>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Predicted Consumption (kWh)</th>
+                    <th>Estimated Solar Generation (kWh)</th>
+                    <th>Energy Balance (kWh)</th>
+                </tr>
+            </thead>
+            <tbody id="dailyTable">
+                <tr>
+                    <td colspan="4">Loading forecast data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+let hourlyChart;
+let departmentChart;
+let comparisonChart;
+
+async function loadConsumptionForecast() {
+
+    try {
+
+        const [
+            departmentResponse,
+            dailyResponse,
+            solarResponse
+        ] = await Promise.all([
+
+            fetch("/api/department-consumption-forecast"),
+            fetch("/api/daily-consumption-forecast"),
+            fetch("/api/daily-summary")
+
+        ]);
+
+        if (!departmentResponse.ok ||
+            !dailyResponse.ok ||
+            !solarResponse.ok) {
+
+            throw new Error("Could not load forecast data.");
+
+        }
+
+        const departmentData = await departmentResponse.json();
+        const dailyData = await dailyResponse.json();
+        const solarData = await solarResponse.json();
+
+        const predictions = departmentData.predictions;
+
+        if (!predictions || predictions.length === 0) {
+            throw new Error("No department predictions available.");
+        }
+
+        // Calculate total consumption by department
+
+        const departmentTotals = {};
+
+        predictions.forEach(item => {
+
+            const department = item.department;
+
+            if (!departmentTotals[department]) {
+                departmentTotals[department] = 0;
+            }
+
+            departmentTotals[department] +=
+                Number(item.predicted_consumption_kwh);
+
+        });
+
+        const departments = Object.keys(departmentTotals);
+
+        const highestDepartment = departments.reduce((a, b) =>
+            departmentTotals[a] > departmentTotals[b] ? a : b
+        );
+
+        const totalConsumption = Object.values(departmentTotals)
+            .reduce((sum, value) => sum + value, 0);
+
+        // Calculate estimated solar generation
+
+        const solarByDate = {};
+
+        solarData.forEach(item => {
+
+            solarByDate[item.date] =
+                Number(item.predicted_generation_kwh);
+
+        });
+
+        const totalSolar = Object.values(solarByDate)
+            .reduce((sum, value) => sum + value, 0);
+
+        const balance = totalSolar - totalConsumption;
+
+        // Update summary cards
+
+        document.getElementById("totalConsumption").textContent =
+            totalConsumption.toFixed(2) + " kWh";
+
+        document.getElementById("highestDepartment").textContent =
+            highestDepartment;
+
+        document.getElementById("highestValue").textContent =
+            departmentTotals[highestDepartment].toFixed(2) + " kWh";
+
+        document.getElementById("totalSolar").textContent =
+            totalSolar.toFixed(2) + " kWh";
+
+        document.getElementById("energyBalance").textContent =
+            balance.toFixed(2) + " kWh";
+
+        document.getElementById("balanceDescription").textContent =
+            balance >= 0
+            ? "Estimated generation exceeds predicted consumption"
+            : "Predicted consumption exceeds estimated generation";
+
+
+        // Prepare hourly department data
+
+        const timestamps = [...new Set(
+            predictions.map(item => item.time)
+        )].sort();
+
+        const departmentDatasets = departments.map(department => {
+
+            return {
+                label: department,
+
+                data: timestamps.map(time => {
+
+                    const record = predictions.find(item =>
+                        item.time === time &&
+                        item.department === department
+                    );
+
+                    return record
+                        ? Number(record.predicted_consumption_kwh)
+                        : 0;
+
+                }),
+
+                tension: 0.3
+            };
+
+        });
+
+        if (hourlyChart) hourlyChart.destroy();
+
+        hourlyChart = new Chart(
+            document.getElementById("hourlyChart"),
+            {
+                type: "line",
+
+                data: {
+                    labels: timestamps,
+                    datasets: departmentDatasets
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: "Energy (kWh)"
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+
+        // Department comparison chart
+
+        if (departmentChart) departmentChart.destroy();
+
+        departmentChart = new Chart(
+            document.getElementById("departmentChart"),
+            {
+                type: "bar",
+
+                data: {
+                    labels: departments,
+
+                    datasets: [{
+                        label: "Predicted Consumption (kWh)",
+                        data: departments.map(
+                            department => departmentTotals[department]
+                        )
+                    }]
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+
+
+        // Daily solar vs consumption comparison
+
+        const solarDates = dailyData.map(item => item.date);
+
+        const solarValues = solarDates.map(date =>
+            solarByDate[date] || 0
+        );
+
+        const consumptionValues = dailyData.map(item =>
+            Number(item.estimated_consumption_kwh)
+        );
+
+        if (comparisonChart) comparisonChart.destroy();
+
+        comparisonChart = new Chart(
+            document.getElementById("comparisonChart"),
+            {
+                type: "bar",
+
+                data: {
+                    labels: solarDates,
+
+                    datasets: [
+                        {
+                            label: "Predicted Consumption (kWh)",
+                            data: consumptionValues
+                        },
+                        {
+                            label: "Estimated Solar Generation (kWh)",
+                            data: solarValues
+                        }
+                    ]
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: "Energy (kWh)"
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+
+        // Daily forecast table
+
+        const table = document.getElementById("dailyTable");
+
+        table.innerHTML = "";
+
+        dailyData.forEach(item => {
+
+            const solar = solarByDate[item.date] || 0;
+
+            const consumption =
+                Number(item.estimated_consumption_kwh);
+
+            const dailyBalance = solar - consumption;
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${item.date}</td>
+                <td>${consumption.toFixed(2)} kWh</td>
+                <td>${solar.toFixed(2)} kWh</td>
+                <td>${dailyBalance.toFixed(2)} kWh</td>
+            `;
+
+            table.appendChild(row);
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById("totalConsumption").textContent =
+            "Unavailable";
+
+        document.getElementById("dailyTable").innerHTML =
+            `<tr><td colspan="4">${error.message}</td></tr>`;
+
+    }
+
+}
+
+loadConsumptionForecast();
+
+</script>
+
+{% endblock %}

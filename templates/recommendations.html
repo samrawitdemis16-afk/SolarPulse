@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Recommendations | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>Intelligent Energy Recommendations</h1>
+
+<p class="info-text">
+    Energy insights and recommendations based on solar generation
+    forecasts and electricity consumption patterns.
+</p>
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Departments Analyzed</h3>
+        <h2 id="departmentCount">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Highest Consumption</h3>
+        <h2 id="highestDepartment">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Peak Solar Hour</h3>
+        <h2 id="peakHour">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Highest Predicted Demand</h3>
+        <h2 id="highestDemand">Loading...</h2>
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Energy Management Suggestions</h2>
+
+    <div id="recommendationList">
+        <p>Analyzing energy data...</p>
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Daily Energy Outlook</h2>
+
+    <div id="dailyOutlook">
+        <p>Loading daily energy outlook...</p>
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+async function getData(url) {
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(url + " returned " + response.status);
+    }
+
+    return await response.json();
+
+}
+
+
+async function loadRecommendations() {
+
+    const list = document.getElementById("recommendationList");
+    const outlook = document.getElementById("dailyOutlook");
+
+    const recommendations = [];
+
+
+    // Load historical consumption
+
+    try {
+
+        const departments = await getData("/api/energy-summary");
+
+        if (!Array.isArray(departments) || departments.length === 0) {
+            throw new Error("No department data available.");
+        }
+
+        const highest = departments.reduce((a, b) =>
+            Number(a.energy_kwh) > Number(b.energy_kwh) ? a : b
+        );
+
+        document.getElementById("departmentCount").textContent =
+            departments.length;
+
+        document.getElementById("highestDepartment").textContent =
+            highest.department;
+
+        const total = departments.reduce(
+            (sum, item) => sum + Number(item.energy_kwh),
+            0
+        );
+
+        const share = total > 0
+            ? Number(highest.energy_kwh) / total * 100
+            : 0;
+
+        recommendations.push({
+
+            title: "Review High Energy Consumption",
+
+            description:
+                highest.department +
+                " has the highest recorded consumption at " +
+                Number(highest.energy_kwh).toFixed(2) +
+                " kWh. It accounts for approximately " +
+                share.toFixed(1) +
+                "% of the recorded energy use. Review its equipment and operating schedules."
+
+        });
+
+    } catch (error) {
+
+        console.error("Department data error:", error);
+
+        document.getElementById("departmentCount").textContent = "Unavailable";
+        document.getElementById("highestDepartment").textContent = "Unavailable";
+
+    }
+
+
+    // Load solar generation forecast
+
+    try {
+
+        const forecast = await getData("/api/forecast");
+
+        if (!Array.isArray(forecast) || forecast.length === 0) {
+            throw new Error("No solar forecast available.");
+        }
+
+        const peak = forecast.reduce((a, b) =>
+            Number(a.generation) > Number(b.generation) ? a : b
+        );
+
+        const peakDate = new Date(
+            peak.time.replace(" ", "T")
+        );
+
+        const formattedHour = peakDate.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        document.getElementById("peakHour").textContent =
+            formattedHour;
+
+        recommendations.push({
+
+            title: "Use Solar Energy During Peak Production",
+
+            description:
+                "Solar generation is expected to be highest around " +
+                formattedHour +
+                ". Consider scheduling flexible activities, such as charging devices, during this period."
+
+        });
+
+
+        // Nighttime recommendation
+
+        const nightHours = forecast.filter(item => {
+
+            const hour = new Date(
+                item.time.replace(" ", "T")
+            ).getHours();
+
+            return hour >= 18 || hour < 6;
+
+        });
+
+        const nightGeneration = nightHours.reduce(
+            (sum, item) => sum + Number(item.generation),
+            0
+        );
+
+        if (nightGeneration < 0.1) {
+
+            recommendations.push({
+
+                title: "Plan Evening Energy Use",
+
+                description:
+                    "Very little solar generation is expected during evening and nighttime hours. Plan essential activities around available stored energy or another power source."
+
+            });
+
+        }
+
+    } catch (error) {
+
+        console.error("Solar forecast error:", error);
+
+        document.getElementById("peakHour").textContent = "Unavailable";
+
+    }
+
+
+    // Load predicted department consumption
+
+    try {
+
+        const demandData = await getData(
+            "/api/department-consumption-forecast"
+        );
+
+        if (
+            !demandData.predictions ||
+            demandData.predictions.length === 0
+        ) {
+            throw new Error("No demand predictions available.");
+        }
+
+        const totals = {};
+
+        demandData.predictions.forEach(item => {
+
+            const name = item.department;
+
+            const value = Number(
+                item.predicted_consumption_kwh
+            );
+
+            totals[name] = (totals[name] || 0) + value;
+
+        });
+
+        const highestDemand = Object.entries(totals)
+            .sort((a, b) => b[1] - a[1])[0];
+
+        if (highestDemand) {
+
+            document.getElementById("highestDemand").textContent =
+                highestDemand[0];
+
+            recommendations.push({
+
+                title: "Monitor Future Department Demand",
+
+                description:
+                    highestDemand[0] +
+                    " has the highest predicted consumption across the forecast period, at approximately " +
+                    highestDemand[1].toFixed(2) +
+                    " kWh. Review its expected energy needs and consider more efficient scheduling."
+
+            });
+
+        }
+
+    } catch (error) {
+
+        console.error("Demand forecast error:", error);
+
+        document.getElementById("highestDemand").textContent =
+            "Unavailable";
+
+    }
+
+
+    // Display recommendations
+
+    list.innerHTML = "";
+
+    if (recommendations.length === 0) {
+
+        list.innerHTML =
+            "<p>No recommendations could be generated. Check the available data.</p>";
+
+    } else {
+
+        recommendations.forEach((item, index) => {
+
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const heading = document.createElement("h3");
+            heading.textContent =
+                (index + 1) + ". " + item.title;
+
+            const paragraph = document.createElement("p");
+            paragraph.className = "info-text";
+            paragraph.textContent = item.description;
+
+            card.appendChild(heading);
+            card.appendChild(paragraph);
+
+            list.appendChild(card);
+
+        });
+
+    }
+
+
+    // Load daily energy outlook independently
+
+    try {
+
+        const results = await Promise.all([
+
+            getData("/api/daily-summary"),
+            getData("/api/daily-consumption-forecast")
+
+        ]);
+
+        const solarDaily = results[0];
+        const consumptionDaily = results[1];
+
+        outlook.innerHTML = "";
+
+        const days = Math.min(
+            solarDaily.length,
+            consumptionDaily.length
+        );
+
+        if (days === 0) {
+            throw new Error("No daily data available.");
+        }
+
+        for (let i = 0; i < days; i++) {
+
+            const solar = Number(
+                solarDaily[i].predicted_generation_kwh
+            );
+
+            const consumption = Number(
+                consumptionDaily[i].estimated_consumption_kwh
+            );
+
+            const difference = solar - consumption;
+
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const heading = document.createElement("h3");
+            heading.textContent = solarDaily[i].date;
+
+            const details = document.createElement("p");
+            details.className = "info-text";
+
+            details.textContent =
+                "Solar generation: " + solar.toFixed(2) +
+                " kWh | Predicted consumption: " +
+                consumption.toFixed(2) + " kWh";
+
+            const balance = document.createElement("p");
+            balance.className = "info-text";
+
+            if (difference >= 0) {
+
+                balance.textContent =
+                    "Potential surplus: +" +
+                    difference.toFixed(2) + " kWh";
+
+            } else {
+
+                balance.textContent =
+                    "Potential deficit: " +
+                    Math.abs(difference).toFixed(2) + " kWh";
+
+            }
+
+            card.appendChild(heading);
+            card.appendChild(details);
+            card.appendChild(balance);
+
+            outlook.appendChild(card);
+
+        }
+
+    } catch (error) {
+
+        console.error("Daily outlook error:", error);
+
+        outlook.innerHTML =
+            "<p>Daily energy outlook is unavailable.</p>";
+
+    }
+
+}
+
+
+loadRecommendations();
+
+</script>
+
+{% endblock %}

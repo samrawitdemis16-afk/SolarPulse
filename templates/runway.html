@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Runway | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>Energy Runway</h1>
+
+<p class="info-text">
+    Estimate how long your available stored energy can support essential activities.
+</p>
+
+<div class="card">
+
+    <h2>Energy Storage Information</h2>
+
+    <p class="info-text">
+        Enter your battery information and the power required by essential activities.
+    </p>
+
+    <label for="batteryCapacity">Battery Capacity (kWh)</label>
+
+    <input
+        type="number"
+        id="batteryCapacity"
+        value="10"
+        min="0.1"
+        step="0.1"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <label for="chargeLevel">Current Battery Charge (%)</label>
+
+    <input
+        type="number"
+        id="chargeLevel"
+        value="80"
+        min="0"
+        max="100"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <label for="reserveLevel">Minimum Reserve Charge (%)</label>
+
+    <input
+        type="number"
+        id="reserveLevel"
+        value="20"
+        min="0"
+        max="100"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <label for="essentialLoad">Essential Power Consumption (kW)</label>
+
+    <input
+        type="number"
+        id="essentialLoad"
+        value="1"
+        min="0.01"
+        step="0.1"
+        style="display:block; margin:10px 0 20px; padding:10px; width:100%; max-width:350px;"
+    >
+
+    <button onclick="calculateRunway()">
+        Calculate Energy Runway
+    </button>
+
+</div>
+
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Available Energy</h3>
+        <h2 id="availableEnergy">-- kWh</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Estimated Runtime</h3>
+        <h2 id="runtime">--</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Remaining Reserve</h3>
+        <h2 id="reserveEnergy">-- kWh</h2>
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Energy Runway Result</h2>
+
+    <p id="runwayMessage" class="info-text">
+        Enter your battery information and calculate your energy runway.
+    </p>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+function calculateRunway() {
+
+    const capacity = Number(
+        document.getElementById("batteryCapacity").value
+    );
+
+    const charge = Number(
+        document.getElementById("chargeLevel").value
+    );
+
+    const reserve = Number(
+        document.getElementById("reserveLevel").value
+    );
+
+    const load = Number(
+        document.getElementById("essentialLoad").value
+    );
+
+    const message = document.getElementById("runwayMessage");
+
+    if (
+        !Number.isFinite(capacity) ||
+        !Number.isFinite(charge) ||
+        !Number.isFinite(reserve) ||
+        !Number.isFinite(load) ||
+        capacity <= 0 ||
+        load <= 0 ||
+        charge < 0 ||
+        charge > 100 ||
+        reserve < 0 ||
+        reserve > 100 ||
+        reserve > charge
+    ) {
+
+        message.textContent =
+            "Please enter valid values. Reserve charge cannot exceed current charge.";
+
+        return;
+
+    }
+
+    const currentEnergy = capacity * charge / 100;
+
+    const reserveEnergy = capacity * reserve / 100;
+
+    const availableEnergy = currentEnergy - reserveEnergy;
+
+    const hours = availableEnergy / load;
+
+    const wholeHours = Math.floor(hours);
+
+    const minutes = Math.round((hours - wholeHours) * 60);
+
+    document.getElementById("availableEnergy").textContent =
+        availableEnergy.toFixed(2) + " kWh";
+
+    document.getElementById("reserveEnergy").textContent =
+        reserveEnergy.toFixed(2) + " kWh";
+
+    document.getElementById("runtime").textContent =
+        wholeHours + "h " + minutes + "m";
+
+    if (availableEnergy === 0) {
+
+        message.textContent =
+            "Your battery is already at its minimum reserve level. No additional energy is available for the selected load.";
+
+    } else {
+
+        message.textContent =
+            "At the selected essential power consumption of " +
+            load.toFixed(2) +
+            " kW, your available energy is estimated to last approximately " +
+            wholeHours +
+            " hours and " +
+            minutes +
+            " minutes before reaching the reserve level.";
+
+    }
+
+}
+
+calculateRunway();
+
+</script>
+
+{% endblock %}

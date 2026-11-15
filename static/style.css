@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #101827;
+    color: #e8f0f7;
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 245px;
+    background: #0b1220;
+    color: white;
+    padding: 30px 20px;
+    border-right: 1px solid #263448;
+}
+
+.logo {
+    font-size: 25px;
+    font-weight: 800;
+    margin-bottom: 45px;
+}
+
+.logo span {
+    color: #27d6c2;
+}
+
+.sidebar h4 {
+    color: #71869e;
+    font-size: 11px;
+    margin: 25px 10px 12px;
+    letter-spacing: 1.5px;
+}
+
+.sidebar a {
+    display: block;
+    color: #b5c5d6;
+    text-decoration: none;
+    padding: 13px 12px;
+    margin: 5px 0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+    background: #163b48;
+    color: #36e0cb;
+}
+
+.main {
+    flex: 1;
+    padding: 35px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 27px;
+    font-weight: 800;
+}
+
+.header p {
+    color: #91a3b7;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.status {
+    background: #123d3b;
+    color: #45e0bd;
+    padding: 10px 16px;
+    border-radius: 25px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.card {
+    background: #1a2638;
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid #2a3a50;
+}
+
+.card h3 {
+    font-size: 13px;
+    color: #9aadc1;
+    font-weight: 600;
+    margin-bottom: 17px;
+}
+
+.value {
+    font-size: 27px;
+    font-weight: 800;
+    color: #38dfca;
+}
+
+.card small {
+    display: block;
+    color: #8194a9;
+    margin-top: 10px;
+    font-size: 11px;
+}
+
+.content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 22px;
+}
+
+.panel {
+    background: #1a2638;
+    padding: 25px;
+    border-radius: 14px;
+    border: 1px solid #2a3a50;
+}
+
+.panel h2 {
+    font-size: 17px;
+    margin-bottom: 20px;
+    color: #edf5fc;
+}
+
+.chart-placeholder {
+    height: 220px;
+    background: #111d2d;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #8194a9;
+    font-size: 13px;
+}
+
+.insight {
+    background: #172f3b;
+    padding: 17px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #c3d3df;
+}
+
+.insight strong {
+    display: block;
+    color: #3cddc7;
+    margin-bottom: 5px;
+}
+
+.simulator {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.simulator button {
+    border: none;
+    background: #087e80;
+    color: white;
+    padding: 12px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.simulator button:hover {
+    background: #0ba9a3;
+}
+
+@media (max-width: 1000px) {
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+    }
+
+    .main {
+        padding: 20px;
+    }
+
+    .cards {
+        grid-template-columns: 1fr;
+    }
+}
+.chart-panel {
+    position: relative;
+    height: 350px;
+    padding: 20px;
+}
+
+.chart-panel canvas {
+    width: 100% !important;
+    height: 280px !important;
+}
+
+.chart-note {
+    color: #91a3b7;
+    font-size: 12px;
+    margin-bottom: 12px;
+}

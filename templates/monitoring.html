@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Monitoring | SolarPulse{% endblock %}
+
+{% block content %}
+
+<h1>Energy Monitoring</h1>
+
+<p class="info-text">
+    Monitor electricity consumption across different institutional departments.
+</p>
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+        <h3>Total Energy Consumption</h3>
+        <h2 id="totalEnergy">Loading...</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Departments Monitored</h3>
+        <h2 id="departmentCount">Loading...</h2>
+    </div>
+
+</div>
+
+<div class="card">
+    <h2>Energy Consumption by Department</h2>
+
+    <p class="info-text">
+        Compare how much energy each department consumes.
+    </p>
+
+    <div class="chart-container">
+        <canvas id="departmentChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Department Energy Distribution</h2>
+
+    <p class="info-text">
+        View each department's share of total energy consumption.
+    </p>
+
+    <div class="chart-container">
+        <canvas id="distributionChart"></canvas>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+async function loadEnergyMonitoring() {
+
+    try {
+
+        const response = await fetch("/api/energy-summary");
+
+        const data = await response.json();
+
+        const departments = data.map(item => item.department);
+
+        const energy = data.map(item => Number(item.energy_kwh));
+
+        const total = energy.reduce((sum, value) => sum + value, 0);
+
+        document.getElementById("totalEnergy").textContent =
+            total.toFixed(2) + " kWh";
+
+        document.getElementById("departmentCount").textContent =
+            departments.length;
+
+        new Chart(document.getElementById("departmentChart"), {
+
+            type: "bar",
+
+            data: {
+                labels: departments,
+
+                datasets: [{
+                    label: "Energy Consumption (kWh)",
+                    data: energy,
+                    borderWidth: 1
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+
+        });
+
+        new Chart(document.getElementById("distributionChart"), {
+
+            type: "doughnut",
+
+            data: {
+                labels: departments,
+
+                datasets: [{
+                    label: "Energy Distribution",
+                    data: energy
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error("Energy monitoring error:", error);
+
+        document.getElementById("totalEnergy").textContent = "Unavailable";
+        document.getElementById("departmentCount").textContent = "Unavailable";
+
+    }
+
+}
+
+loadEnergyMonitoring();
+
+</script>
+
+{% endblock %}
